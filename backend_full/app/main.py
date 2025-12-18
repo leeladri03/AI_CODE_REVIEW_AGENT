@@ -1,11 +1,9 @@
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Request
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from app.services.github_service import clone_repo, push_new_repo
 from app.services.fix_service import fix_repo_code
 from app.services.scan_parser import parse_scan_report
-from app.database import get_db, CodeReview
 from app.middleware.rate_limit import rate_limiter
-from sqlalchemy.orm import Session
 import tempfile, shutil, os, json, logging
 from dotenv import load_dotenv
 
@@ -87,7 +85,7 @@ def format_change_report(changes):
     return change_report
 
 @app.post("/review")
-async def review(request: Request, repo_url: str = Form(...), scan_report: UploadFile = File(...), github_token: str = Form(None), db: Session = Depends(get_db)):
+async def review(request: Request, repo_url: str = Form(...), scan_report: UploadFile = File(...), github_token: str = Form(None)):
     await rate_limiter.check_rate_limit(request)
     
     # Read and validate scan report first
@@ -126,21 +124,6 @@ async def review(request: Request, repo_url: str = Form(...), scan_report: Uploa
         changes = fix_repo_code(repo_path, issues)
         new_repo_url = push_new_repo(repo_path, repo_url, github_token)
         change_report = format_change_report(changes)
-
-        if db:
-            try:
-                db_review = CodeReview(
-                    original_repo_url=repo_url,
-                    updated_repo_url=new_repo_url,
-                    scan_report=report_text,
-                    changes_summary=json.dumps(change_report),
-                    diff_content=json.dumps(changes)
-                )
-                db.add(db_review)
-                db.commit()
-            except Exception as e:
-                logger.error(f"Database error: {e}")
-                db.rollback()
         
         return {"updated_repo_link": new_repo_url, "change_report": change_report}
 
