@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_BASE || 'https://ai-code-review-agent-aogg.onrender.com';
 
 // Configure axios defaults
 axios.defaults.timeout = 30000;
